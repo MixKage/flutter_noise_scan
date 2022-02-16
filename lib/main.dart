@@ -1,10 +1,7 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:noise_meter/noise_meter.dart';
 
-String textDb = "0 db";
 void main() {
   runApp(const MyApp());
 }
@@ -33,101 +30,108 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool isStartRecording = false;
+  bool isRecording = false;
+  String textDb = "0 db";
   String textButton = "Start scan noise";
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: Color.fromRGBO(216, 225, 252, 1.0),
-        appBar: AppBar(
-          title: Text(widget.title),
-          foregroundColor: Colors.white,
-        ),
-        body: Column(children: [
-          const Padding(
-            padding: EdgeInsets.all(40),
-            child: Align(alignment: Alignment.topCenter, child: Circle()),
-          ),
-          Padding(
-            padding: EdgeInsets.all(40),
-            child: Align(
-                alignment: Alignment.bottomCenter,
-                child: RaisedButton(
-                  onPressed: StartOrPause,
-                  child: Text(textButton),
-                  color: const Color.fromRGBO(134, 169, 248, 1),
-                )),
-          )
-        ]));
-  }
-
-  late bool _isRecording;
-  late StreamSubscription<NoiseReading> _noiseSubscription;
-  late NoiseMeter _noiseMeter = NoiseMeter(onError);
+  StreamSubscription<NoiseReading>? _noiseSubscription;
+  late NoiseMeter _noiseMeter;
 
   @override
   void initState() {
-    _isRecording = false;
+    super.initState();
+    _noiseMeter = NoiseMeter(onError);
   }
 
-  void StartOrPause() {
-    if (isStartRecording) {
+  void startOnPause() {
+    if (isRecording) {
       stopRecorder();
-      textButton = "Start scan noise";
+      setState(() {
+        textButton = "Start scan noise";
+        isRecording = false;
+      });
     } else {
       start();
-      textButton = "Stop scan noise";
+      setState(() {
+        textButton = "Stop scan noise";
+        isRecording = true;
+      });
     }
-    isStartRecording = !isStartRecording;
-    setState(() {});
   }
 
-  void start() async {
-    _noiseSubscription = _noiseMeter.noiseStream.listen(onData);
-  }
+  void start() async =>
+      _noiseSubscription = _noiseMeter.noiseStream.listen(onData);
 
   void onData(NoiseReading noiseReading) {
-    this.setState(() {
-      if (!this._isRecording) {
-        this._isRecording = true;
-      }
+    setState(() {
       textDb = noiseReading.meanDecibel.toStringAsFixed(4) + " db";
     });
-
-    textDb = noiseReading.meanDecibel.toStringAsFixed(4) + " db";
-    print("NNN: " + textDb);
+    debugPrint("NNN: " + textDb);
   }
 
   void onError(Object error) {
-    print(error.toString());
-    _isRecording = false;
+    debugPrint(error.toString());
+    setState(() {
+      isRecording = false;
+    });
   }
 
   void stopRecorder() async {
     try {
       if (_noiseSubscription != null) {
-        _noiseSubscription.cancel();
-        //_noiseSubscription = null;
+        _noiseSubscription!.cancel();
+        _noiseSubscription = null;
       }
-      this.setState(() {
-        this._isRecording = false;
+      setState(() {
+        isRecording = false;
       });
     } catch (err) {
-      print('stopRecorder error: $err');
+      debugPrint('stopRecorder error: $err');
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        backgroundColor: const Color.fromRGBO(216, 225, 252, 1.0),
+        appBar: AppBar(
+          title: Text(widget.title),
+          foregroundColor: Colors.white,
+        ),
+        body: Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(40),
+            child: Align(
+                alignment: Alignment.topCenter,
+                child: Circle(
+                  text: textDb,
+                )),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(40),
+            child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ElevatedButton(
+                  onPressed: startOnPause,
+                  child: Text(textButton),
+                  style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all<Color>(
+                          const Color.fromRGBO(134, 169, 248, 1))),
+                )),
+          )
+        ]));
   }
 }
 
 class Circle extends StatelessWidget {
-  const Circle({Key? key}) : super(key: key);
+  const Circle({Key? key, required this.text}) : super(key: key);
+  final String text;
   @override
   Widget build(BuildContext context) {
     return Container(
       child: Align(
           alignment: Alignment.center,
           child: Text(
-            textDb,
+            text,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 55),
           )),
       width: 300.0,
